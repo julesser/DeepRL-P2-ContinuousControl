@@ -16,7 +16,7 @@ TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #BUG: torch==0.4.0 doesn't support new graphics cards / drivers
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #BUG: torch==0.4.0 doesn't support newest graphics cards / drivers
 # See https://stackoverflow.com/questions/60987997/why-torch-cuda-is-available-returns-false-even-after-installing-pytorch-with
 device = torch.device("cpu") # >> Use CPU-only for now
 
@@ -41,15 +41,15 @@ class Agent():
         self.actor_local = Actor(
             state_size, action_size, random_seed).to(device)
         self.actor_target = Actor(
-            state_size, action_size, random_seed).to(device)
+            state_size, action_size, random_seed*2).to(device)
         self.actor_optimizer = optim.Adam(
             self.actor_local.parameters(), lr=LR_ACTOR)
 
         # Critic Network (w/ Target Network)
         self.critic_local = Critic(
-            state_size, action_size, random_seed).to(device)
+            state_size, action_size, random_seed*3).to(device)
         self.critic_target = Critic(
-            state_size, action_size, random_seed).to(device)
+            state_size, action_size, random_seed*4).to(device)
         self.critic_optimizer = optim.Adam(
             self.critic_local.parameters(), lr=LR_CRITIC)
 
@@ -149,6 +149,8 @@ class OUNoise:
 
     def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
+        
+        self.size = size
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
@@ -162,8 +164,7 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * \
-            np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.standard_normal(self.size)
         self.state = x + dx
         return self.state
 
