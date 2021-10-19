@@ -13,11 +13,12 @@ BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 128        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 2e-4         # learning rate of the actor
-LR_CRITIC = 2e-4        # learning rate of the critic
-WEIGHT_DECAY = 0.0001   # L2 weight decay
+LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_CRITIC = 1e-4        # learning rate of the critic
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #BUG: torch==0.4.0 doesn't support new graphics cards / drivers
+# See https://stackoverflow.com/questions/60987997/why-torch-cuda-is-available-returns-false-even-after-installing-pytorch-with
+device = torch.device("cpu") # >> Use CPU-only for now
 
 
 class Agent():
@@ -50,19 +51,23 @@ class Agent():
         self.critic_target = Critic(
             state_size, action_size, random_seed).to(device)
         self.critic_optimizer = optim.Adam(
-            self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
+            self.critic_local.parameters(), lr=LR_CRITIC)
 
         # Noise process
         self.noise = OUNoise(action_size, random_seed)
+
+         # Noise ampliture
+        self.noise_amplitude = 1.0
 
         # Replay memory
         self.memory = ReplayBuffer(
             action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, states, actions, rewards, next_states, dones):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
-        self.memory.add(state, action, reward, next_state, done)
+        for state, action, reward, next_state, done in zip(states, actions, rewards, next_states, dones):
+            self.memory.add(state, action, reward, next_state, done)
 
         # Learn, if enough samples are available in memory
         if len(self.memory) > BATCH_SIZE:
@@ -77,7 +82,7 @@ class Agent():
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
         if add_noise:
-            action += self.noise.sample()
+            action += self.noise.sample()*self.noise_amplitude
         return np.clip(action, -1, 1)
 
     def reset(self):
@@ -176,29 +181,23 @@ class ReplayBuffer:
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)  # internal memory (deque)
         self.batch_size = batch_size
-        self.experience = namedtuple("Experience", field_names=[
-                                     "state", "action", "reward", "next_state", "done"])
+        self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
         self.seed = random.seed(seed)
-
+    
     def add(self, state, action, reward, next_state, done):
         """Add a new experience to memory."""
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
-
+    
     def sample(self):
         """Randomly sample a batch of experiences from memory."""
         experiences = random.sample(self.memory, k=self.batch_size)
 
-        states = torch.from_numpy(
-            np.vstack([e.state for e in experiences if e is not None])).float().to(device)
-        actions = torch.from_numpy(
-            np.vstack([e.action for e in experiences if e is not None])).float().to(device)
-        rewards = torch.from_numpy(
-            np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
-        next_states = torch.from_numpy(np.vstack(
-            [e.next_state for e in experiences if e is not None])).float().to(device)
-        dones = torch.from_numpy(np.vstack(
-            [e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).float().to(device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
 
         return (states, actions, rewards, next_states, dones)
 

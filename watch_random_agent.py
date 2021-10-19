@@ -3,7 +3,8 @@ import numpy as np
 
 # 1. Create environment
 env = UnityEnvironment(
-    file_name="simulator/Reacher_Single/Reacher.x86_64")  # one agent
+    # file_name="simulator/Reacher_Single/Reacher.x86_64")  # one agent
+    file_name="simulator/Reacher_Multi/Reacher.x86_64")  # 20 agents
 # env = UnityEnvironment(file_name="simulator/Reacher_Parallel/Reacher.x86_64") # 20 parallel agents
 brain_name = env.brain_names[0]
 brain = env.brains[brain_name]
